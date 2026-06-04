@@ -11,8 +11,20 @@ DEFAULT_LENS = np.array([3, 2, 1, 4], dtype=np.int32)
 DEFAULT_GET_USER_ID_RANK = np.array([1, 2, 3, 4, 2, 8, 1, 1, 2, 4], dtype=np.int32)
 
 
+def scenario_name() -> str:
+    return os.environ.get("CALC_WEIGHT_SCENARIO", "default")
+
+
+def default_index_count() -> int:
+    if scenario_name() == "printable":
+        return 2
+    return DEFAULT_INDEX_COUNT
+
+
 def build_lens(index_count: int) -> np.ndarray:
-    scenario = os.environ.get("CALC_WEIGHT_SCENARIO", "default")
+    scenario = scenario_name()
+    if scenario == "printable":
+        return np.resize(np.array([2, 2], dtype=np.int32), index_count).astype(np.int32)
     if scenario == "avg2":
         base = np.array([1, 2, 3, 2], dtype=np.int32)
         return np.resize(base, index_count).astype(np.int32)
@@ -22,7 +34,11 @@ def build_lens(index_count: int) -> np.ndarray:
 
 
 def build_ranks(lens: np.ndarray) -> np.ndarray:
-    scenario = os.environ.get("CALC_WEIGHT_SCENARIO", "default")
+    scenario = scenario_name()
+    if scenario == "printable":
+        base = np.array([2, 3, 4, 2], dtype=np.int32)
+        total_entries = int(np.sum(lens))
+        return np.resize(base, total_entries).astype(np.int32)
     if scenario == "default" and len(lens) == DEFAULT_INDEX_COUNT:
         return DEFAULT_GET_USER_ID_RANK.copy()
 
@@ -43,7 +59,7 @@ def build_ranks(lens: np.ndarray) -> np.ndarray:
     return np.array(ranks, dtype=np.int32)
 
 
-INDEX_COUNT = int(os.environ.get("INDEX_COUNT", DEFAULT_INDEX_COUNT))
+INDEX_COUNT = int(os.environ.get("INDEX_COUNT", default_index_count()))
 LENS = build_lens(INDEX_COUNT)
 GET_USER_ID_RANK = build_ranks(LENS)
 TOTAL_RANK_ENTRIES = int(np.sum(LENS))
@@ -96,8 +112,15 @@ def main() -> None:
     os.makedirs("output", exist_ok=True)
 
     shape = (INDEX_COUNT, ROWS, RANKS)
-    weight_r = rng.uniform(-1.0, 1.0, size=shape).astype(np.float32)
-    weight_i = rng.uniform(-1.0, 1.0, size=shape).astype(np.float32)
+    if scenario_name() == "printable":
+        row = np.arange(ROWS, dtype=np.float32).reshape(1, ROWS, 1)
+        col = np.arange(RANKS, dtype=np.float32).reshape(1, 1, RANKS)
+        index = np.arange(INDEX_COUNT, dtype=np.float32).reshape(INDEX_COUNT, 1, 1)
+        weight_r = (1.0 + index * 0.5 + row * 0.01 + col * 0.1).astype(np.float32)
+        weight_i = (-0.2 - index * 0.05 + row * 0.002 - col * 0.01).astype(np.float32)
+    else:
+        weight_r = rng.uniform(-1.0, 1.0, size=shape).astype(np.float32)
+        weight_i = rng.uniform(-1.0, 1.0, size=shape).astype(np.float32)
 
     weight_r.tofile("input/input_weight_r.bin")
     weight_i.tofile("input/input_weight_i.bin")
