@@ -20,8 +20,7 @@ export DDK_PATH=$_ASCEND_INSTALL_PATH
 export NPU_HOST_LIB=$_ASCEND_INSTALL_PATH/$(arch)-$(uname -s | tr '[:upper:]' '[:lower:]')/lib64
 export LD_LIBRARY_PATH=/usr/local/Ascend/driver/lib64/driver:$LD_LIBRARY_PATH
 if [ -z "$DEVICE_ID" ] && [ -z "$ASCEND_DEVICE_ID" ]; then
-    first_device=$(ls /dev/davinci[0-9]* 2>/dev/null | sed -n 's#.*/davinci\([0-9][0-9]*\)$#\1#p' | head -n 1)
-    export DEVICE_ID=${first_device:-0}
+    export DEVICE_ID=0
 fi
 export ASCEND_DEVICE_ID=${ASCEND_DEVICE_ID:-$DEVICE_ID}
 echo "INFO: use DEVICE_ID=${DEVICE_ID:-$ASCEND_DEVICE_ID}"
