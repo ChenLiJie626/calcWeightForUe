@@ -4,11 +4,48 @@ import os
 import numpy as np
 
 
-INDEX_COUNT = 4
 ROWS = 384
 RANKS = 8
-LENS = np.array([3, 2, 1, 4], dtype=np.int32)
-GET_USER_ID_RANK = np.array([1, 2, 3, 4, 2, 8, 1, 1, 2, 4], dtype=np.int32)
+DEFAULT_INDEX_COUNT = 4
+DEFAULT_LENS = np.array([3, 2, 1, 4], dtype=np.int32)
+DEFAULT_GET_USER_ID_RANK = np.array([1, 2, 3, 4, 2, 8, 1, 1, 2, 4], dtype=np.int32)
+
+
+def build_lens(index_count: int) -> np.ndarray:
+    scenario = os.environ.get("CALC_WEIGHT_SCENARIO", "default")
+    if scenario == "avg2":
+        base = np.array([1, 2, 3, 2], dtype=np.int32)
+        return np.resize(base, index_count).astype(np.int32)
+    if index_count == DEFAULT_INDEX_COUNT:
+        return DEFAULT_LENS.copy()
+    return np.full((index_count,), 2, dtype=np.int32)
+
+
+def build_ranks(lens: np.ndarray) -> np.ndarray:
+    scenario = os.environ.get("CALC_WEIGHT_SCENARIO", "default")
+    if scenario == "default" and len(lens) == DEFAULT_INDEX_COUNT:
+        return DEFAULT_GET_USER_ID_RANK.copy()
+
+    ranks = []
+    for index, cur_len in enumerate(lens):
+        cur_len = int(cur_len)
+        if cur_len == 1:
+            current = [8]
+        elif cur_len == 2:
+            current = [1 + (index % 3), 3 + (index % 2)]
+        elif cur_len == 3:
+            current = [1, 2 + (index % 2), 3]
+        else:
+            current = [1] * cur_len
+        if sum(current) > RANKS:
+            raise ValueError(f"rank sum exceeds {RANKS}: index={index}, ranks={current}")
+        ranks.extend(current)
+    return np.array(ranks, dtype=np.int32)
+
+
+INDEX_COUNT = int(os.environ.get("INDEX_COUNT", DEFAULT_INDEX_COUNT))
+LENS = build_lens(INDEX_COUNT)
+GET_USER_ID_RANK = build_ranks(LENS)
 TOTAL_RANK_ENTRIES = int(np.sum(LENS))
 
 
@@ -80,7 +117,8 @@ def main() -> None:
     print(
         "Generate input and golden data success. "
         f"indexCount={INDEX_COUNT}, totalRankEntries={TOTAL_RANK_ENTRIES}, "
-        f"lens={LENS.tolist()}, rankSums={rank_sums}"
+        f"lensAvg={float(np.mean(LENS)):.6g}, lensMin={int(np.min(LENS))}, lensMax={int(np.max(LENS))}, "
+        f"rankSumMin={min(rank_sums)}, rankSumMax={max(rank_sums)}, firstRankSums={rank_sums[:8]}"
     )
 
 

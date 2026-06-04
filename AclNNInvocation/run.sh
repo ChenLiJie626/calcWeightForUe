@@ -29,6 +29,8 @@ function main {
     rm -rf "$HOME"/ascend/log/*
     rm -f "$CURRENT_DIR"/input/*.bin
     rm -f "$CURRENT_DIR"/output/*.bin
+    rm -f "$CURRENT_DIR"/output/execute_calc_weight_for_ue_op
+    find "$CURRENT_DIR/src" "$CURRENT_DIR/inc" -type f -exec touch {} +
 
     cd "$CURRENT_DIR"
     python3 scripts/gen_data.py

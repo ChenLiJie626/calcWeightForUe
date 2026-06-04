@@ -5,7 +5,6 @@ from typing import Tuple
 import numpy as np
 
 
-TOTAL_RANK_ENTRIES = 10
 ROWS = 384
 RANKS = 8
 
@@ -27,7 +26,11 @@ def check(name: str, actual_path: str, golden_path: str, shape: Tuple[int, int, 
 
 
 def main() -> int:
-    shape = (TOTAL_RANK_ENTRIES, ROWS, RANKS)
+    total_rank_entries = np.fromfile("input/input_getuser_id_rank.bin", dtype=np.int32).shape[0]
+    if total_rank_entries <= 0:
+        print("input/input_getuser_id_rank.bin is empty")
+        return 1
+    shape = (total_rank_entries, ROWS, RANKS)
     weightout_r_ok = check(
         "weightout_r",
         "output/output_weightout_r.bin",

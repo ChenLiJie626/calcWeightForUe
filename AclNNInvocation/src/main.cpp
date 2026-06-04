@@ -12,10 +12,8 @@
 #include "op_runner.h"
 
 namespace {
-constexpr int64_t INDEX_COUNT = 4;
 constexpr int64_t ROWS = 384;
 constexpr int64_t RANKS = 8;
-constexpr int64_t TOTAL_RANK_ENTRIES = 10;
 } // namespace
 
 bool g_isDevice = false;
@@ -32,12 +30,24 @@ void ResolveDeviceId()
     }
 }
 
+int64_t CountInt32Elements(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0 || st.st_size <= 0 || st.st_size % static_cast<off_t>(sizeof(int32_t)) != 0) {
+        ERROR_LOG("Invalid int32 input file: %s", path);
+        return 0;
+    }
+    return static_cast<int64_t>(st.st_size / static_cast<off_t>(sizeof(int32_t)));
+}
+
 OperatorDesc CreateOpDesc()
 {
-    std::vector<int64_t> weightShape{INDEX_COUNT, ROWS, RANKS};
-    std::vector<int64_t> lensShape{INDEX_COUNT};
-    std::vector<int64_t> rankShape{TOTAL_RANK_ENTRIES};
-    std::vector<int64_t> outputShape{TOTAL_RANK_ENTRIES, ROWS, RANKS};
+    const int64_t indexCount = CountInt32Elements("../input/input_lens.bin");
+    const int64_t totalRankEntries = CountInt32Elements("../input/input_getuser_id_rank.bin");
+    std::vector<int64_t> weightShape{indexCount, ROWS, RANKS};
+    std::vector<int64_t> lensShape{indexCount};
+    std::vector<int64_t> rankShape{totalRankEntries};
+    std::vector<int64_t> outputShape{totalRankEntries, ROWS, RANKS};
     aclFormat format = ACL_FORMAT_ND;
     OperatorDesc opDesc;
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
