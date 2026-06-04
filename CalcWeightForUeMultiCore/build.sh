@@ -1,0 +1,104 @@
+#!/bin/bash
+if [ -n "$BASE_LIBS_PATH" ]; then
+  export ASCEND_HOME_PATH=$BASE_LIBS_PATH
+elif [ -n "$ASCEND_HOME_PATH" ]; then
+  export ASCEND_HOME_PATH=$ASCEND_HOME_PATH
+elif [ -n "$ASCEND_AICPU_PATH" ]; then
+  export ASCEND_HOME_PATH=$ASCEND_AICPU_PATH
+elif [ -d "$HOME/Ascend/ascend-toolkit/latest" ]; then
+  export ASCEND_HOME_PATH=$HOME/Ascend/ascend-toolkit/latest
+elif [ -d "/usr/local/Ascend/ascend-toolkit/latest" ]; then
+  export ASCEND_HOME_PATH=/usr/local/Ascend/ascend-toolkit/latest
+else
+  echo "please set env."
+  exit 1
+fi
+echo "using ASCEND_HOME_PATH: $ASCEND_HOME_PATH"
+script_path=$(realpath "$(dirname "$0")")
+
+if [ -f "$ASCEND_HOME_PATH/bin/setenv.bash" ]; then
+  # opbuild needs toolkit libraries such as libregister.so on LD_LIBRARY_PATH.
+  source "$ASCEND_HOME_PATH/bin/setenv.bash"
+fi
+export ASCEND_OPP_PATH=${ASCEND_OPP_PATH:-$ASCEND_HOME_PATH/opp}
+
+find "$script_path/scripts" "$script_path/cmake" -type f -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
+
+mkdir -p build_out
+rm -rf build_out/*
+cd build_out
+
+opts=$(python3 "$script_path/cmake/util/preset_parse.py" "$script_path/CMakePresets.json")
+ENABLE_CROSS="-DENABLE_CROSS_COMPILE=True"
+ENABLE_BINARY="-DENABLE_BINARY_PACKAGE=True"
+cmake_version=$(cmake --version | grep "cmake version" | awk '{print $3}')
+
+cmake_run_package()
+{
+  target=$1
+  cmake --build . --target $target -j16
+  if [ $? -ne 0 ]; then exit 1; fi
+
+  if [ $target = "package" ]; then
+    if test -d ./op_kernel/binary ; then
+      ./cust*.run
+      if [ $? -ne 0 ]; then exit 1; fi
+      cmake --build . --target binary -j16
+      if [ $? -ne 0 ]; then
+          echo "[ERROR] Kernel compile failed, the run package will not be generated."
+          rm -rf ./cust*.run && rm -rf ./cust*.run.json && exit 1;
+      fi
+      cmake --build . --target $target -j16
+      if [ $? -ne 0 ]; then exit 1; fi
+      ./cust*.run
+      if [ $? -ne 0 ]; then exit 1; fi
+    fi
+  fi
+}
+
+if [[ $opts =~ $ENABLE_CROSS ]] && [[ $opts =~ $ENABLE_BINARY ]]
+then
+  target=package
+  if [ "$1"x != ""x ]; then target=$1; fi
+  if [ "$cmake_version" \< "3.19.0" ] ; then
+    cmake .. $opts -DENABLE_CROSS_COMPILE=0 -DASCEND_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+  else
+    cmake .. --preset=default -DENABLE_CROSS_COMPILE=0 -DASCEND_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+  fi
+  cmake_run_package $target
+  cp -r kernel ../
+  rm -rf *
+  if [ "$cmake_version" \< "3.19.0" ] ; then
+    cmake .. $opts -DASCEND_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+  else
+    cmake .. --preset=default -DASCEND_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+  fi
+
+  cmake --build . --target $target -j16
+  if [ $? -ne 0 ]; then
+      echo "[ERROR] Kernel compile failed, the run package will not be generated."
+      rm -rf ./cust*.run && rm -rf ./cust*.run.json && exit 1;
+  fi
+  if [ $target = "package" ]; then
+    ./cust*.run
+    if [ $? -ne 0 ]; then exit 1; fi
+  fi
+  rm -rf ../kernel
+
+else
+  target=package
+  if [ "$1"x != ""x ]; then target=$1; fi
+  if [ "$cmake_version" \< "3.19.0" ] ; then
+    cmake .. $opts -DASCEND_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+  else
+      cmake .. --preset=default -DASCEND_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+  fi
+  cmake_run_package $target
+fi
+
+
+# for debug
+# cd build_out
+# make
+# cpack
+# verbose append -v
