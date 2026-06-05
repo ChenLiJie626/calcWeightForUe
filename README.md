@@ -34,10 +34,12 @@ for i in range(indexCount):
 
     shufflePos = 0
     for k in range(lens[i]):
-        weightout[pos + k] = rotate_left_columns(weightTmp, shufflePos)
+        weightout[pos + k] = shuffle first sumRank columns of weightTmp by shufflePos
         shufflePos += ranks[k]
     pos += lens[i]
 ```
+
+The shuffle only reorders columns `[0, sumRank)`. Columns `[sumRank, 8)` are kept in their original positions; the validation data generator sets those input columns to zero. For example, with input columns `a,b,c,d,e,0,0,0`, `sumRank=5`, and `shufflePos=2`, the output columns are `c,d,e,a,b,0,0,0`.
 
 Build the operator:
 

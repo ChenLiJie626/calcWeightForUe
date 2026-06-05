@@ -56,12 +56,16 @@ def main() -> int:
     pos = 0
     for index, cur_len in enumerate(lens):
         shuffle_pos = 0
+        sum_rank = int(np.sum(np.maximum(ranks[pos:pos + int(cur_len)], 0)))
         for k in range(int(cur_len)):
             entry = pos + k
             if entry >= args.entries:
                 break
             rank = int(ranks[entry])
-            print(f"=== output entry {entry} (index={index}, k={k}, rank={rank}, shufflePos={shuffle_pos}) ===")
+            print(
+                f"=== output entry {entry} "
+                f"(index={index}, k={k}, rank={rank}, sumRank={sum_rank}, shufflePos={shuffle_pos}) ==="
+            )
             print_matrix("golden_r", golden_r[entry], args.rows)
             print_matrix("actual_r", actual_r[entry], args.rows)
             print_matrix("golden_i", golden_i[entry], args.rows)

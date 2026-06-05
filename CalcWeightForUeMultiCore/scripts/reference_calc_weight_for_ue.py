@@ -9,11 +9,17 @@ ROWS = 384
 RANKS_PER_INDEX = 8
 
 
-def rotate_left_columns(x: np.ndarray, shift: int) -> np.ndarray:
-    shift %= RANKS_PER_INDEX
+def shuffle_valid_columns(x: np.ndarray, shift: int, sum_rank: int) -> np.ndarray:
+    out = x.copy()
+    valid_cols = min(max(int(sum_rank), 0), RANKS_PER_INDEX)
+    if valid_cols == 0:
+        return out
+    shift %= valid_cols
     if shift == 0:
-        return x.copy()
-    return np.concatenate([x[:, shift:], x[:, :shift]], axis=1)
+        out[:, :valid_cols] = x[:, :valid_cols]
+    else:
+        out[:, :valid_cols] = np.concatenate([x[:, shift:valid_cols], x[:, :shift]], axis=1)
+    return out
 
 
 def calc_weight_for_ue(weight_r: np.ndarray,
@@ -53,8 +59,8 @@ def calc_weight_for_ue(weight_r: np.ndarray,
 
         shuffle_pos = 0
         for k, rank in enumerate(ranks):
-            out_r[pos + k] = rotate_left_columns(tmp_r, shuffle_pos)
-            out_i[pos + k] = rotate_left_columns(tmp_i, shuffle_pos)
+            out_r[pos + k] = shuffle_valid_columns(tmp_r, shuffle_pos, sum_rank)
+            out_i[pos + k] = shuffle_valid_columns(tmp_i, shuffle_pos, sum_rank)
             shuffle_pos += int(max(rank, 0))
         pos += current_len
     return out_r, out_i

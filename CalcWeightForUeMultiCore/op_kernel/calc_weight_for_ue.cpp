@@ -120,27 +120,37 @@ __aicore__ inline void FillScaleMatrix(LocalTensor<float> &scaleLocal, LocalTens
     }
 }
 
-__aicore__ inline void BuildShuffledMatrix(LocalTensor<float> &dst, LocalTensor<float> &src, uint32_t shufflePos)
+__aicore__ inline void BuildShuffledMatrix(LocalTensor<float> &dst, LocalTensor<float> &src,
+                                           uint32_t shufflePos, uint32_t sumRank)
 {
-    const uint32_t shift = shufflePos % RANKS_PER_INDEX;
+    const uint32_t validCols = sumRank < RANKS_PER_INDEX ? sumRank : RANKS_PER_INDEX;
+    const uint32_t shift = validCols == 0 ? 0 : shufflePos % validCols;
     for (uint32_t row = 0; row < ROWS; ++row) {
         const uint32_t base = row * RANKS_PER_INDEX;
         for (uint32_t col = 0; col < RANKS_PER_INDEX; ++col) {
-            const uint32_t srcCol = (col + shift) % RANKS_PER_INDEX;
-            dst.SetValue(base + col, src.GetValue(base + srcCol));
+            if (col < validCols) {
+                uint32_t srcCol = col + shift;
+                if (srcCol >= validCols) {
+                    srcCol -= validCols;
+                }
+                dst.SetValue(base + col, src.GetValue(base + srcCol));
+            } else {
+                dst.SetValue(base + col, src.GetValue(base + col));
+            }
         }
     }
 }
 
 __aicore__ inline void WriteShuffledMatrix(GlobalTensor<float> &out, LocalTensor<float> &tmpLocal,
                                            LocalTensor<float> &outLocal, uint64_t outOffset,
-                                           uint32_t shufflePos)
+                                           uint32_t shufflePos, uint32_t sumRank)
 {
-    if (shufflePos % RANKS_PER_INDEX == 0) {
+    const uint32_t validCols = sumRank < RANKS_PER_INDEX ? sumRank : RANKS_PER_INDEX;
+    if (validCols > 0 && shufflePos % validCols == 0) {
         DataCopy(out[outOffset], tmpLocal, MATRIX_ELEMS);
         return;
     }
-    BuildShuffledMatrix(outLocal, tmpLocal, shufflePos);
+    BuildShuffledMatrix(outLocal, tmpLocal, shufflePos, sumRank);
     PipeBarrier<PIPE_ALL>();
     DataCopy(out[outOffset], outLocal, MATRIX_ELEMS);
 }
@@ -211,8 +221,8 @@ __aicore__ inline void ProcessIndex(GlobalTensor<float> &weightR, GlobalTensor<f
     uint32_t shufflePos = 0;
     for (uint32_t k = 0; k < len; ++k) {
         const uint64_t outOffset = static_cast<uint64_t>(entryOffset + k) * MATRIX_ELEMS;
-        WriteShuffledMatrix(outR, tmpRLocal, outRLocal, outOffset, shufflePos);
-        WriteShuffledMatrix(outI, tmpILocal, outILocal, outOffset, shufflePos);
+        WriteShuffledMatrix(outR, tmpRLocal, outRLocal, outOffset, shufflePos, sumRank);
+        WriteShuffledMatrix(outI, tmpILocal, outILocal, outOffset, shufflePos, sumRank);
         PipeBarrier<PIPE_ALL>();
         shufflePos += PositiveLen(ranksGm[entryOffset + k]);
     }

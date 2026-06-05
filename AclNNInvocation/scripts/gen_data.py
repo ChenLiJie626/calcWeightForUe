@@ -65,11 +65,17 @@ GET_USER_ID_RANK = build_ranks(LENS)
 TOTAL_RANK_ENTRIES = int(np.sum(LENS))
 
 
-def rotate_left_columns(weight: np.ndarray, shift: int) -> np.ndarray:
-    shift %= RANKS
+def shuffle_valid_columns(weight: np.ndarray, shift: int, sum_rank: int) -> np.ndarray:
+    out = weight.copy()
+    valid_cols = min(max(int(sum_rank), 0), RANKS)
+    if valid_cols == 0:
+        return out
+    shift %= valid_cols
     if shift == 0:
-        return weight.copy()
-    return np.concatenate((weight[:, shift:], weight[:, :shift]), axis=1)
+        out[:, :valid_cols] = weight[:, :valid_cols]
+    else:
+        out[:, :valid_cols] = np.concatenate((weight[:, shift:valid_cols], weight[:, :shift]), axis=1)
+    return out
 
 
 def column_norm_sum(weight_r: np.ndarray, weight_i: np.ndarray) -> np.ndarray:
@@ -99,8 +105,8 @@ def build_golden(weight_r: np.ndarray, weight_i: np.ndarray) -> tuple[np.ndarray
 
         shuffle_pos = 0
         for k, rank in enumerate(ranks):
-            out_r[pos + k] = rotate_left_columns(weight_tmp_r, shuffle_pos)
-            out_i[pos + k] = rotate_left_columns(weight_tmp_i, shuffle_pos)
+            out_r[pos + k] = shuffle_valid_columns(weight_tmp_r, shuffle_pos, sum_rank)
+            out_i[pos + k] = shuffle_valid_columns(weight_tmp_i, shuffle_pos, sum_rank)
             shuffle_pos += int(max(rank, 0))
         pos += cur_len
     return out_r, out_i
@@ -121,6 +127,15 @@ def main() -> None:
     else:
         weight_r = rng.uniform(-1.0, 1.0, size=shape).astype(np.float32)
         weight_i = rng.uniform(-1.0, 1.0, size=shape).astype(np.float32)
+
+    pos = 0
+    for index, cur_len in enumerate(LENS):
+        ranks = GET_USER_ID_RANK[pos:pos + int(cur_len)]
+        sum_rank = int(np.sum(np.maximum(ranks, 0)))
+        if sum_rank < RANKS:
+            weight_r[index, :, max(sum_rank, 0):] = 0.0
+            weight_i[index, :, max(sum_rank, 0):] = 0.0
+        pos += int(cur_len)
 
     weight_r.tofile("input/input_weight_r.bin")
     weight_i.tofile("input/input_weight_i.bin")
