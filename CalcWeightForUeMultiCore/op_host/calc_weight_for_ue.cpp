@@ -39,6 +39,38 @@ bool CheckOutputShape(const gert::Shape &shape, int64_t totalRankEntries)
            shape.GetDim(0) == totalRankEntries &&
            shape.GetDim(1) == FEATURES;
 }
+
+static UINT32 InferShapeFunc(gert::InferShapeContext *context)
+{
+    const gert::Shape *weightRShape = context->GetInputShape(0);
+    gert::Shape *outRShape = context->GetOutputShape(0);
+    gert::Shape *outIShape = context->GetOutputShape(1);
+    if (weightRShape == nullptr || outRShape == nullptr || outIShape == nullptr ||
+        !CheckWeightShape(*weightRShape)) {
+        return ge::GRAPH_FAILED;
+    }
+
+    *outRShape = *weightRShape;
+    *outIShape = *weightRShape;
+    return ge::GRAPH_SUCCESS;
+}
+
+static UINT32 InferDataTypeFunc(gert::InferDataTypeContext *context)
+{
+    const ge::DataType weightRType = context->GetInputDataType(0);
+    const ge::DataType weightIType = context->GetInputDataType(1);
+    const ge::DataType lensType = context->GetInputDataType(2);
+    const ge::DataType flagType = context->GetInputDataType(3);
+    if (weightRType != ge::DT_FLOAT || weightIType != ge::DT_FLOAT ||
+        lensType != ge::DT_UINT32 || flagType != ge::DT_UINT32) {
+        return ge::GRAPH_FAILED;
+    }
+    if (context->SetOutputDataType(0, weightRType) != ge::GRAPH_SUCCESS ||
+        context->SetOutputDataType(1, weightRType) != ge::GRAPH_SUCCESS) {
+        return ge::GRAPH_FAILED;
+    }
+    return ge::GRAPH_SUCCESS;
+}
 } // namespace
 
 namespace optiling {
@@ -112,11 +144,11 @@ public:
             .Format({ge::FORMAT_ND});
         this->Input("lens")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
+            .DataType({ge::DT_UINT32})
             .Format({ge::FORMAT_ND});
         this->Input("flag")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
+            .DataType({ge::DT_UINT32})
             .Format({ge::FORMAT_ND});
         this->Output("weightout_r")
             .ParamType(REQUIRED)
@@ -126,6 +158,9 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND});
+
+        this->SetInferShape(InferShapeFunc)
+            .SetInferDataType(InferDataTypeFunc);
 
         this->AICore()
             .SetTiling(optiling::TilingFunc)

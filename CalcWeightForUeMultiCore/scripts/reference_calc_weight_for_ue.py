@@ -26,7 +26,7 @@ def calc_weight_for_ue(weight_r: np.ndarray,
 
     pos = 0
     for index in range(lens.shape[0]):
-        ranks = int(max(lens[index], 0))
+        ranks = int(lens[index])
         if ranks == 0:
             continue
         next_pos = pos + ranks
@@ -59,8 +59,8 @@ def main() -> None:
     out_r, out_i = calc_weight_for_ue(
         data["weight_r"].astype(np.float32),
         data["weight_i"].astype(np.float32),
-        data["lens"].astype(np.int32),
-        data["flag"].astype(np.int32),
+        data["lens"].astype(np.uint32),
+        data["flag"].astype(np.uint32),
     )
     np.savez(args.output_npz, weightout_r=out_r, weightout_i=out_i)
 

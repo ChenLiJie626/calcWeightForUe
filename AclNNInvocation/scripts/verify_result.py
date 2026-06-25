@@ -25,8 +25,8 @@ def check(name: str, actual_path: str, golden_path: str, shape: Tuple[int, int],
 
 
 def main() -> int:
-    lens = np.fromfile("input/input_lens.bin", dtype=np.int32)
-    total_rank_entries = int(np.sum(np.maximum(lens, 0)))
+    lens = np.fromfile("input/input_lens.bin", dtype=np.uint32)
+    total_rank_entries = int(np.sum(lens))
     if total_rank_entries <= 0:
         print("input/input_lens.bin has no positive rank entries")
         return 1

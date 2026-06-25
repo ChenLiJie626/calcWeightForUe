@@ -7,16 +7,11 @@ constexpr uint32_t FEATURES = 256;
 constexpr uint32_t FLOAT_BYTES = sizeof(float);
 constexpr uint32_t ROW_BYTES = FEATURES * FLOAT_BYTES;
 
-__aicore__ inline uint32_t PositiveLen(int32_t value)
-{
-    return value > 0 ? static_cast<uint32_t>(value) : 0;
-}
-
-__aicore__ inline uint32_t GetEntryOffset(__gm__ int32_t *lensGm, uint32_t index, uint32_t totalRankEntries)
+__aicore__ inline uint32_t GetEntryOffset(__gm__ uint32_t *lensGm, uint32_t index, uint32_t totalRankEntries)
 {
     uint32_t offset = 0;
     for (uint32_t i = 0; i < index; ++i) {
-        const uint32_t currentLen = PositiveLen(lensGm[i]);
+        const uint32_t currentLen = lensGm[i];
         const uint32_t remaining = offset < totalRankEntries ? totalRankEntries - offset : 0;
         if (currentLen >= remaining) {
             return totalRankEntries;
@@ -26,10 +21,10 @@ __aicore__ inline uint32_t GetEntryOffset(__gm__ int32_t *lensGm, uint32_t index
     return offset;
 }
 
-__aicore__ inline uint32_t GetAvailableLen(__gm__ int32_t *lensGm, uint32_t index,
+__aicore__ inline uint32_t GetAvailableLen(__gm__ uint32_t *lensGm, uint32_t index,
                                            uint32_t entryOffset, uint32_t totalRankEntries)
 {
-    const uint32_t currentLen = PositiveLen(lensGm[index]);
+    const uint32_t currentLen = lensGm[index];
     const uint32_t remaining = entryOffset < totalRankEntries ? totalRankEntries - entryOffset : 0;
     return currentLen < remaining ? currentLen : remaining;
 }
@@ -111,8 +106,8 @@ __aicore__ inline void ProcessIndex(GlobalTensor<float> &weightR, GlobalTensor<f
                                     TBuf<> &workBuf, TBuf<> &scaleBuf, TBuf<> &rankFactorBuf,
                                     uint32_t totalRankEntries, uint32_t index)
 {
-    auto lensGm = reinterpret_cast<__gm__ int32_t *>(lens);
-    auto flagGm = reinterpret_cast<__gm__ int32_t *>(flag);
+    auto lensGm = reinterpret_cast<__gm__ uint32_t *>(lens);
+    auto flagGm = reinterpret_cast<__gm__ uint32_t *>(flag);
 
     const uint32_t entryOffset = GetEntryOffset(lensGm, index, totalRankEntries);
     const uint32_t ranks = GetAvailableLen(lensGm, index, entryOffset, totalRankEntries);

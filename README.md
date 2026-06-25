@@ -11,8 +11,8 @@ Directory layout:
 Inputs:
 
 - `weight_r`, `weight_i`: `float`, shape `[totalRankEntries, 256]`.
-- `lens`: `int32`, shape `[indexCount]`. `sum(max(lens, 0)) == totalRankEntries`.
-- `flag`: `int32`, shape `[indexCount]`. `flag[i] != 0` enables normalization for index `i`; `flag[i] == 0` copies that segment to output unchanged.
+- `lens`: `uint32`, shape `[indexCount]`. `sum(lens) == totalRankEntries`.
+- `flag`: `uint32`, shape `[indexCount]`. `flag[i] != 0` enables normalization for index `i`; `flag[i] == 0` copies that segment to output unchanged.
 
 Outputs:
 

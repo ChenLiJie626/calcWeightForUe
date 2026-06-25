@@ -6,8 +6,8 @@ import numpy as np
 
 FEATURES = 256
 DEFAULT_INDEX_COUNT = 4
-DEFAULT_LENS = np.array([3, 2, 1, 4], dtype=np.int32)
-DEFAULT_FLAG = np.array([1, 0, 1, 1], dtype=np.int32)
+DEFAULT_LENS = np.array([3, 2, 1, 4], dtype=np.uint32)
+DEFAULT_FLAG = np.array([1, 0, 1, 1], dtype=np.uint32)
 
 
 def scenario_name() -> str:
@@ -23,31 +23,31 @@ def default_index_count() -> int:
 def build_lens(index_count: int) -> np.ndarray:
     scenario = scenario_name()
     if scenario == "printable":
-        return np.resize(np.array([2, 3], dtype=np.int32), index_count).astype(np.int32)
+        return np.resize(np.array([2, 3], dtype=np.uint32), index_count).astype(np.uint32)
     if scenario == "avg2":
-        base = np.array([1, 2, 3, 2], dtype=np.int32)
-        return np.resize(base, index_count).astype(np.int32)
+        base = np.array([1, 2, 3, 2], dtype=np.uint32)
+        return np.resize(base, index_count).astype(np.uint32)
     if index_count == DEFAULT_INDEX_COUNT:
         return DEFAULT_LENS.copy()
-    return np.full((index_count,), 2, dtype=np.int32)
+    return np.full((index_count,), 2, dtype=np.uint32)
 
 
 def build_flag(index_count: int) -> np.ndarray:
     scenario = scenario_name()
     if scenario == "printable":
-        return np.resize(np.array([1, 0], dtype=np.int32), index_count).astype(np.int32)
+        return np.resize(np.array([1, 0], dtype=np.uint32), index_count).astype(np.uint32)
     if scenario == "avg2":
-        base = np.array([1, 1, 0, 1], dtype=np.int32)
-        return np.resize(base, index_count).astype(np.int32)
+        base = np.array([1, 1, 0, 1], dtype=np.uint32)
+        return np.resize(base, index_count).astype(np.uint32)
     if index_count == DEFAULT_INDEX_COUNT:
         return DEFAULT_FLAG.copy()
-    return np.ones((index_count,), dtype=np.int32)
+    return np.ones((index_count,), dtype=np.uint32)
 
 
 INDEX_COUNT = int(os.environ.get("INDEX_COUNT", default_index_count()))
 LENS = build_lens(INDEX_COUNT)
 FLAG = build_flag(INDEX_COUNT)
-TOTAL_RANK_ENTRIES = int(np.sum(np.maximum(LENS, 0)))
+TOTAL_RANK_ENTRIES = int(np.sum(LENS))
 
 
 def build_golden(weight_r: np.ndarray, weight_i: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -56,7 +56,7 @@ def build_golden(weight_r: np.ndarray, weight_i: np.ndarray) -> tuple[np.ndarray
 
     pos = 0
     for index in range(INDEX_COUNT):
-        ranks = int(max(LENS[index], 0))
+        ranks = int(LENS[index])
         if ranks == 0:
             continue
 

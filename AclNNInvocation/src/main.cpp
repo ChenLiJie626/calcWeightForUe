@@ -29,14 +29,14 @@ void ResolveDeviceId()
     }
 }
 
-int64_t CountInt32Elements(const char *path)
+int64_t CountUInt32Elements(const char *path)
 {
     struct stat st;
-    if (stat(path, &st) != 0 || st.st_size <= 0 || st.st_size % static_cast<off_t>(sizeof(int32_t)) != 0) {
-        ERROR_LOG("Invalid int32 input file: %s", path);
+    if (stat(path, &st) != 0 || st.st_size <= 0 || st.st_size % static_cast<off_t>(sizeof(uint32_t)) != 0) {
+        ERROR_LOG("Invalid uint32 input file: %s", path);
         return 0;
     }
-    return static_cast<int64_t>(st.st_size / static_cast<off_t>(sizeof(int32_t)));
+    return static_cast<int64_t>(st.st_size / static_cast<off_t>(sizeof(uint32_t)));
 }
 
 int64_t CountFloatElements(const char *path)
@@ -51,8 +51,8 @@ int64_t CountFloatElements(const char *path)
 
 OperatorDesc CreateOpDesc()
 {
-    const int64_t indexCount = CountInt32Elements("../input/input_lens.bin");
-    const int64_t flagCount = CountInt32Elements("../input/input_flag.bin");
+    const int64_t indexCount = CountUInt32Elements("../input/input_lens.bin");
+    const int64_t flagCount = CountUInt32Elements("../input/input_flag.bin");
     const int64_t weightElems = CountFloatElements("../input/input_weight_r.bin");
     const int64_t totalRankEntries = weightElems > 0 ? weightElems / FEATURES : 0;
     if (indexCount != flagCount) {
@@ -69,8 +69,8 @@ OperatorDesc CreateOpDesc()
     OperatorDesc opDesc;
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
-    opDesc.AddInputTensorDesc(ACL_INT32, lensShape.size(), lensShape.data(), format);
-    opDesc.AddInputTensorDesc(ACL_INT32, flagShape.size(), flagShape.data(), format);
+    opDesc.AddInputTensorDesc(ACL_UINT32, lensShape.size(), lensShape.data(), format);
+    opDesc.AddInputTensorDesc(ACL_UINT32, flagShape.size(), flagShape.data(), format);
     opDesc.AddOutputTensorDesc(ACL_FLOAT, outputShape.size(), outputShape.data(), format);
     opDesc.AddOutputTensorDesc(ACL_FLOAT, outputShape.size(), outputShape.data(), format);
     return opDesc;

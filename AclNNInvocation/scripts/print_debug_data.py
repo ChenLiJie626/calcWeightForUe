@@ -25,10 +25,10 @@ def main() -> int:
     args = parser.parse_args()
 
     base = Path(".")
-    lens = np.fromfile(base / "input/input_lens.bin", dtype=np.int32)
-    flag = np.fromfile(base / "input/input_flag.bin", dtype=np.int32)
+    lens = np.fromfile(base / "input/input_lens.bin", dtype=np.uint32)
+    flag = np.fromfile(base / "input/input_flag.bin", dtype=np.uint32)
     index_count = int(lens.shape[0])
-    total_entries = int(np.sum(np.maximum(lens, 0)))
+    total_entries = int(np.sum(lens))
     if index_count == 0 or total_entries == 0:
         print("No input data found. Run scripts/gen_data.py first.")
         return 1
@@ -48,7 +48,7 @@ def main() -> int:
     pos = 0
     printed = 0
     for index, cur_len in enumerate(lens):
-        ranks = int(max(cur_len, 0))
+        ranks = int(cur_len)
         if ranks == 0:
             continue
         next_pos = pos + ranks

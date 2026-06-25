@@ -5,8 +5,8 @@ AscendC AIV custom-operator project for `CalcWeightForUe`.
 Inputs:
 
 - `weight_r`, `weight_i`: `float`, shape `[totalRankEntries, 256]`.
-- `lens`: `int32`, shape `[indexCount]`. `lens[i]` is the rank-row count for index `i`.
-- `flag`: `int32`, shape `[indexCount]`. `flag[i] != 0` enables normalization for that `[lens[i], 256]` segment; `flag[i] == 0` copies it unchanged.
+- `lens`: `uint32`, shape `[indexCount]`. `lens[i]` is the rank-row count for index `i`.
+- `flag`: `uint32`, shape `[indexCount]`. `flag[i] != 0` enables normalization for that `[lens[i], 256]` segment; `flag[i] == 0` copies it unchanged.
 
 Outputs:
 
@@ -15,8 +15,8 @@ Outputs:
 For each index `i`:
 
 ```text
-pos = sum(max(lens[:i], 0))
-ranks = max(lens[i], 0)
+pos = sum(lens[:i])
+ranks = lens[i]
 weight = weight[pos:pos + ranks, :]
 
 if flag[i] == 0:
