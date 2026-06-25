@@ -6,8 +6,7 @@
 #include "register/tilingdata_base.h"
 
 namespace CalcWeightForUeConst {
-constexpr int32_t ROWS = 384;
-constexpr int32_t RANKS_PER_INDEX = 8;
+constexpr int32_t FEATURES = 256;
 constexpr int32_t DEFAULT_BLOCK_DIM = 16;
 } // namespace CalcWeightForUeConst
 

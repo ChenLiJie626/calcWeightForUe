@@ -5,11 +5,10 @@ from typing import Tuple
 import numpy as np
 
 
-ROWS = 384
-RANKS = 8
+FEATURES = 256
 
 
-def check(name: str, actual_path: str, golden_path: str, shape: Tuple[int, int, int],
+def check(name: str, actual_path: str, golden_path: str, shape: Tuple[int, int],
           atol: float, rtol: float) -> bool:
     actual = np.fromfile(actual_path, dtype=np.float32).reshape(shape)
     golden = np.fromfile(golden_path, dtype=np.float32).reshape(shape)
@@ -26,11 +25,12 @@ def check(name: str, actual_path: str, golden_path: str, shape: Tuple[int, int, 
 
 
 def main() -> int:
-    total_rank_entries = np.fromfile("input/input_getuser_id_rank.bin", dtype=np.int32).shape[0]
+    lens = np.fromfile("input/input_lens.bin", dtype=np.int32)
+    total_rank_entries = int(np.sum(np.maximum(lens, 0)))
     if total_rank_entries <= 0:
-        print("input/input_getuser_id_rank.bin is empty")
+        print("input/input_lens.bin has no positive rank entries")
         return 1
-    shape = (total_rank_entries, ROWS, RANKS)
+    shape = (total_rank_entries, FEATURES)
     weightout_r_ok = check(
         "weightout_r",
         "output/output_weightout_r.bin",

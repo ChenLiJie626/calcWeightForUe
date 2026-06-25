@@ -34,7 +34,7 @@
                 ]
             },
             {
-                "name": "getuserIdRank",
+                "name": "flag",
                 "param_type": "required",
                 "format": [
                     "ND"

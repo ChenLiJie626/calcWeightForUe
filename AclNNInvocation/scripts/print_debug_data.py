@@ -5,79 +5,70 @@ from pathlib import Path
 import numpy as np
 
 
-ROWS = 384
-RANKS = 8
+FEATURES = 256
 
 
 def load_float(path: Path, shape: tuple[int, ...]) -> np.ndarray:
     return np.fromfile(path, dtype=np.float32).reshape(shape)
 
 
-def print_matrix(name: str, matrix: np.ndarray, rows: int) -> None:
-    print(f"{name} first {rows} rows:")
-    print(np.array2string(matrix[:rows], precision=6, suppress_small=False, max_line_width=180))
+def print_rows(name: str, matrix: np.ndarray, rows: int, cols: int) -> None:
+    print(f"{name} first {rows} rows, first {cols} cols:")
+    print(np.array2string(matrix[:rows, :cols], precision=6, suppress_small=False, max_line_width=180))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Print small CalcWeightForUe input/output data.")
     parser.add_argument("--rows", type=int, default=3)
-    parser.add_argument("--entries", type=int, default=8)
+    parser.add_argument("--cols", type=int, default=12)
+    parser.add_argument("--entries", type=int, default=4)
     args = parser.parse_args()
 
     base = Path(".")
     lens = np.fromfile(base / "input/input_lens.bin", dtype=np.int32)
-    ranks = np.fromfile(base / "input/input_getuser_id_rank.bin", dtype=np.int32)
+    flag = np.fromfile(base / "input/input_flag.bin", dtype=np.int32)
     index_count = int(lens.shape[0])
-    total_entries = int(ranks.shape[0])
+    total_entries = int(np.sum(np.maximum(lens, 0)))
     if index_count == 0 or total_entries == 0:
         print("No input data found. Run scripts/gen_data.py first.")
         return 1
 
-    weight_r = load_float(base / "input/input_weight_r.bin", (index_count, ROWS, RANKS))
-    weight_i = load_float(base / "input/input_weight_i.bin", (index_count, ROWS, RANKS))
-    golden_r = load_float(base / "output/golden_weightout_r.bin", (total_entries, ROWS, RANKS))
-    golden_i = load_float(base / "output/golden_weightout_i.bin", (total_entries, ROWS, RANKS))
-    actual_r = load_float(base / "output/output_weightout_r.bin", (total_entries, ROWS, RANKS))
-    actual_i = load_float(base / "output/output_weightout_i.bin", (total_entries, ROWS, RANKS))
+    weight_r = load_float(base / "input/input_weight_r.bin", (total_entries, FEATURES))
+    weight_i = load_float(base / "input/input_weight_i.bin", (total_entries, FEATURES))
+    golden_r = load_float(base / "output/golden_weightout_r.bin", (total_entries, FEATURES))
+    golden_i = load_float(base / "output/golden_weightout_i.bin", (total_entries, FEATURES))
+    actual_r = load_float(base / "output/output_weightout_r.bin", (total_entries, FEATURES))
+    actual_i = load_float(base / "output/output_weightout_i.bin", (total_entries, FEATURES))
 
     np.set_printoptions(precision=6, suppress=False, linewidth=180)
-    print(f"indexCount={index_count}, lens={lens.tolist()}, totalRankEntries={total_entries}")
-    print(f"getuserIdRank={ranks.tolist()}")
+    print(f"indexCount={index_count}, totalRankEntries={total_entries}, lens={lens.tolist()}")
+    print(f"flag={flag.tolist()}")
     print()
 
-    for index in range(min(index_count, 2)):
-        print(f"=== input index {index} ===")
-        print_matrix("weight_r", weight_r[index], args.rows)
-        print_matrix("weight_i", weight_i[index], args.rows)
-        norm = weight_r[index] * weight_r[index] + weight_i[index] * weight_i[index]
-        print(f"weightVec=sum(norm, axis=0): {np.array2string(norm.sum(axis=0), precision=6, max_line_width=180)}")
-        print()
-
     pos = 0
+    printed = 0
     for index, cur_len in enumerate(lens):
-        shuffle_pos = 0
-        sum_rank = int(np.sum(np.maximum(ranks[pos:pos + int(cur_len)], 0)))
-        for k in range(int(cur_len)):
-            entry = pos + k
-            if entry >= args.entries:
-                break
-            rank = int(ranks[entry])
-            print(
-                f"=== output entry {entry} "
-                f"(index={index}, k={k}, rank={rank}, sumRank={sum_rank}, shufflePos={shuffle_pos}) ==="
-            )
-            print_matrix("golden_r", golden_r[entry], args.rows)
-            print_matrix("actual_r", actual_r[entry], args.rows)
-            print_matrix("golden_i", golden_i[entry], args.rows)
-            print_matrix("actual_i", actual_i[entry], args.rows)
-            max_r = float(np.max(np.abs(actual_r[entry] - golden_r[entry])))
-            max_i = float(np.max(np.abs(actual_i[entry] - golden_i[entry])))
-            print(f"entry max_abs_diff: real={max_r:.8g}, imag={max_i:.8g}")
+        ranks = int(max(cur_len, 0))
+        if ranks == 0:
+            continue
+        next_pos = pos + ranks
+        if printed < args.entries:
+            print(f"=== index {index} (rankRows={ranks}, flag={int(flag[index])}, pos={pos}) ===")
+            rows = min(args.rows, ranks)
+            print_rows("input weight_r", weight_r[pos:next_pos], rows, args.cols)
+            print_rows("input weight_i", weight_i[pos:next_pos], rows, args.cols)
+            norm = weight_r[pos:next_pos] * weight_r[pos:next_pos] + weight_i[pos:next_pos] * weight_i[pos:next_pos]
+            print(f"weightVec=sum(norm, axis=1): {np.array2string(norm.sum(axis=1), precision=6, max_line_width=180)}")
+            print_rows("golden_r", golden_r[pos:next_pos], rows, args.cols)
+            print_rows("actual_r", actual_r[pos:next_pos], rows, args.cols)
+            print_rows("golden_i", golden_i[pos:next_pos], rows, args.cols)
+            print_rows("actual_i", actual_i[pos:next_pos], rows, args.cols)
+            max_r = float(np.max(np.abs(actual_r[pos:next_pos] - golden_r[pos:next_pos])))
+            max_i = float(np.max(np.abs(actual_i[pos:next_pos] - golden_i[pos:next_pos])))
+            print(f"index max_abs_diff: real={max_r:.8g}, imag={max_i:.8g}")
             print()
-            shuffle_pos += rank
-        pos += int(cur_len)
-        if pos >= args.entries:
-            break
+            printed += 1
+        pos = next_pos
 
     all_real = float(np.max(np.abs(actual_r - golden_r)))
     all_imag = float(np.max(np.abs(actual_i - golden_i)))

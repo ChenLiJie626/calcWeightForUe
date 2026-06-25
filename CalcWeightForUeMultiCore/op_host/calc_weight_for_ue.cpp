@@ -15,10 +15,9 @@ bool CheckVectorShape(const gert::Shape &shape, int64_t len)
 
 bool CheckWeightShape(const gert::Shape &shape)
 {
-    return shape.GetDimNum() == 3 &&
+    return shape.GetDimNum() == 2 &&
            shape.GetDim(0) > 0 &&
-           shape.GetDim(1) == ROWS &&
-           shape.GetDim(2) == RANKS_PER_INDEX;
+           shape.GetDim(1) == FEATURES;
 }
 
 bool CheckSameShape(const gert::Shape &lhs, const gert::Shape &rhs)
@@ -36,10 +35,9 @@ bool CheckSameShape(const gert::Shape &lhs, const gert::Shape &rhs)
 
 bool CheckOutputShape(const gert::Shape &shape, int64_t totalRankEntries)
 {
-    return shape.GetDimNum() == 3 &&
+    return shape.GetDimNum() == 2 &&
            shape.GetDim(0) == totalRankEntries &&
-           shape.GetDim(1) == ROWS &&
-           shape.GetDim(2) == RANKS_PER_INDEX;
+           shape.GetDim(1) == FEATURES;
 }
 } // namespace
 
@@ -49,7 +47,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     auto weightRShape = context->GetInputTensor(0)->GetOriginShape();
     auto weightIShape = context->GetInputTensor(1)->GetOriginShape();
     auto lensShape = context->GetInputTensor(2)->GetOriginShape();
-    auto ranksShape = context->GetInputTensor(3)->GetOriginShape();
+    auto flagShape = context->GetInputTensor(3)->GetOriginShape();
     auto outRStorageShape = context->GetOutputShape(0);
     auto outIStorageShape = context->GetOutputShape(1);
     if (outRStorageShape == nullptr || outIStorageShape == nullptr) {
@@ -61,14 +59,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     if (!CheckWeightShape(weightRShape) || !CheckSameShape(weightRShape, weightIShape)) {
         return ge::GRAPH_FAILED;
     }
-    const int64_t indexCount = weightRShape.GetDim(0);
-    if (!CheckVectorShape(lensShape, indexCount) || ranksShape.GetDimNum() != 1) {
+    if (lensShape.GetDimNum() != 1) {
+        return ge::GRAPH_FAILED;
+    }
+    const int64_t indexCount = lensShape.GetDim(0);
+    if (indexCount <= 0 || !CheckVectorShape(flagShape, indexCount)) {
         return ge::GRAPH_FAILED;
     }
 
-    const int64_t totalRankEntries = ranksShape.GetDim(0);
-    if (totalRankEntries < 0 ||
-        static_cast<uint64_t>(totalRankEntries) > static_cast<uint64_t>(indexCount) * RANKS_PER_INDEX) {
+    const int64_t totalRankEntries = weightRShape.GetDim(0);
+    if (totalRankEntries <= 0) {
         return ge::GRAPH_FAILED;
     }
     if (!CheckOutputShape(outRShape, totalRankEntries) ||
@@ -114,7 +114,7 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND});
-        this->Input("getuserIdRank")
+        this->Input("flag")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND});

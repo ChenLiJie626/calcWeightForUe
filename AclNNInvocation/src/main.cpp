@@ -12,8 +12,7 @@
 #include "op_runner.h"
 
 namespace {
-constexpr int64_t ROWS = 384;
-constexpr int64_t RANKS = 8;
+constexpr int64_t FEATURES = 256;
 } // namespace
 
 bool g_isDevice = false;
@@ -40,20 +39,38 @@ int64_t CountInt32Elements(const char *path)
     return static_cast<int64_t>(st.st_size / static_cast<off_t>(sizeof(int32_t)));
 }
 
+int64_t CountFloatElements(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0 || st.st_size <= 0 || st.st_size % static_cast<off_t>(sizeof(float)) != 0) {
+        ERROR_LOG("Invalid float input file: %s", path);
+        return 0;
+    }
+    return static_cast<int64_t>(st.st_size / static_cast<off_t>(sizeof(float)));
+}
+
 OperatorDesc CreateOpDesc()
 {
     const int64_t indexCount = CountInt32Elements("../input/input_lens.bin");
-    const int64_t totalRankEntries = CountInt32Elements("../input/input_getuser_id_rank.bin");
-    std::vector<int64_t> weightShape{indexCount, ROWS, RANKS};
+    const int64_t flagCount = CountInt32Elements("../input/input_flag.bin");
+    const int64_t weightElems = CountFloatElements("../input/input_weight_r.bin");
+    const int64_t totalRankEntries = weightElems > 0 ? weightElems / FEATURES : 0;
+    if (indexCount != flagCount) {
+        ERROR_LOG("lens count %ld does not match flag count %ld", indexCount, flagCount);
+    }
+    if (weightElems % FEATURES != 0) {
+        ERROR_LOG("input_weight_r element count %ld is not divisible by %ld", weightElems, FEATURES);
+    }
+    std::vector<int64_t> weightShape{totalRankEntries, FEATURES};
     std::vector<int64_t> lensShape{indexCount};
-    std::vector<int64_t> rankShape{totalRankEntries};
-    std::vector<int64_t> outputShape{totalRankEntries, ROWS, RANKS};
+    std::vector<int64_t> flagShape{indexCount};
+    std::vector<int64_t> outputShape{totalRankEntries, FEATURES};
     aclFormat format = ACL_FORMAT_ND;
     OperatorDesc opDesc;
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
     opDesc.AddInputTensorDesc(ACL_INT32, lensShape.size(), lensShape.data(), format);
-    opDesc.AddInputTensorDesc(ACL_INT32, rankShape.size(), rankShape.data(), format);
+    opDesc.AddInputTensorDesc(ACL_INT32, flagShape.size(), flagShape.data(), format);
     opDesc.AddOutputTensorDesc(ACL_FLOAT, outputShape.size(), outputShape.data(), format);
     opDesc.AddOutputTensorDesc(ACL_FLOAT, outputShape.size(), outputShape.data(), format);
     return opDesc;
@@ -65,7 +82,7 @@ bool SetInputData(OpRunner &runner)
     if (!ReadFile("../input/input_weight_r.bin", fileSize, runner.GetInputBuffer<void>(0), runner.GetInputSize(0)) ||
         !ReadFile("../input/input_weight_i.bin", fileSize, runner.GetInputBuffer<void>(1), runner.GetInputSize(1)) ||
         !ReadFile("../input/input_lens.bin", fileSize, runner.GetInputBuffer<void>(2), runner.GetInputSize(2)) ||
-        !ReadFile("../input/input_getuser_id_rank.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3))) {
+        !ReadFile("../input/input_flag.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3))) {
         return false;
     }
     INFO_LOG("Set input success");
