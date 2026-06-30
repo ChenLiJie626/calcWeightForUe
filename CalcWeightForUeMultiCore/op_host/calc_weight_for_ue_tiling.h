@@ -12,6 +12,7 @@ constexpr int32_t DEFAULT_BLOCK_DIM = 16;
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(CalcWeightForUeTilingData)
+TILING_DATA_FIELD_DEF(uint32_t, reserved);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(CalcWeightForUe, CalcWeightForUeTilingData)

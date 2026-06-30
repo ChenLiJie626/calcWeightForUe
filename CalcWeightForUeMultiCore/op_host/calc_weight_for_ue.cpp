@@ -169,6 +169,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     }
 
     CalcWeightForUeTilingData tiling;
+    tiling.set_reserved(0);
     context->SetBlockDim(DEFAULT_BLOCK_DIM);
     context->SetTilingKey(0);
 
