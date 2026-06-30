@@ -26,7 +26,15 @@ def check(name: str, actual_path: str, golden_path: str, shape: Tuple[int, int],
 
 def main() -> int:
     lens = np.fromfile("input/input_lens.bin", dtype=np.uint32)
-    total_rank_entries = int(np.sum(lens))
+    idx_count = np.fromfile("input/input_idx_count.bin", dtype=np.uint32)
+    if idx_count.shape != (1,):
+        print("input/input_idx_count.bin must contain exactly one uint32")
+        return 1
+    valid_count = int(idx_count[0])
+    if valid_count > lens.shape[0]:
+        print(f"idxCount={valid_count} exceeds lens entries={lens.shape[0]}")
+        return 1
+    total_rank_entries = int(np.sum(lens[:valid_count]))
     if total_rank_entries <= 0:
         print("input/input_lens.bin has no positive rank entries")
         return 1

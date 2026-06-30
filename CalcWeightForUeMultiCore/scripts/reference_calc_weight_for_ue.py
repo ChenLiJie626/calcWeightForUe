@@ -11,7 +11,8 @@ FEATURES = 256
 def calc_weight_for_ue(weight_r: np.ndarray,
                        weight_i: np.ndarray,
                        lens: np.ndarray,
-                       flag: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+                       flag: np.ndarray,
+                       idx_count: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     if weight_r.ndim != 2 or weight_r.shape[1] != FEATURES:
         raise ValueError(f"weight_r shape must be [totalRankEntries, {FEATURES}]")
     if weight_i.shape != weight_r.shape:
@@ -20,12 +21,17 @@ def calc_weight_for_ue(weight_r: np.ndarray,
         raise ValueError("lens shape must be [indexCount]")
     if flag.shape != lens.shape:
         raise ValueError("flag shape must match lens")
+    if idx_count.shape != (1,):
+        raise ValueError("idx_count shape must be [1]")
+    index_count = int(idx_count[0])
+    if index_count > lens.shape[0]:
+        raise ValueError("idx_count must be no larger than lens length")
 
     out_r = np.zeros_like(weight_r, dtype=np.float32)
     out_i = np.zeros_like(weight_i, dtype=np.float32)
 
     pos = 0
-    for index in range(lens.shape[0]):
+    for index in range(index_count):
         ranks = int(lens[index])
         if ranks == 0:
             continue
@@ -61,6 +67,7 @@ def main() -> None:
         data["weight_i"].astype(np.float32),
         data["lens"].astype(np.uint32),
         data["flag"].astype(np.uint32),
+        data["idxCount"].astype(np.uint32),
     )
     np.savez(args.output_npz, weightout_r=out_r, weightout_i=out_i)
 

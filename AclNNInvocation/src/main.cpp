@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <vector>
 
@@ -49,28 +50,63 @@ int64_t CountFloatElements(const char *path)
     return static_cast<int64_t>(st.st_size / static_cast<off_t>(sizeof(float)));
 }
 
+std::vector<uint32_t> ReadUInt32Vector(const char *path)
+{
+    const int64_t count = CountUInt32Elements(path);
+    std::vector<uint32_t> values(static_cast<size_t>(count));
+    if (count <= 0) {
+        return values;
+    }
+    std::ifstream file(path, std::ios::binary);
+    if (!file.read(reinterpret_cast<char *>(values.data()), count * static_cast<int64_t>(sizeof(uint32_t)))) {
+        ERROR_LOG("Read uint32 input file failed: %s", path);
+        values.clear();
+    }
+    return values;
+}
+
 OperatorDesc CreateOpDesc()
 {
-    const int64_t indexCount = CountUInt32Elements("../input/input_lens.bin");
+    const std::vector<uint32_t> lensValues = ReadUInt32Vector("../input/input_lens.bin");
+    const std::vector<uint32_t> idxCountValues = ReadUInt32Vector("../input/input_idx_count.bin");
+    const int64_t indexCount = static_cast<int64_t>(lensValues.size());
     const int64_t flagCount = CountUInt32Elements("../input/input_flag.bin");
     const int64_t weightElems = CountFloatElements("../input/input_weight_r.bin");
-    const int64_t totalRankEntries = weightElems > 0 ? weightElems / FEATURES : 0;
+    const int64_t idxCountElements = static_cast<int64_t>(idxCountValues.size());
+    const uint32_t activeIndexCount = idxCountElements == 1 ? idxCountValues[0] : 0;
+    if (idxCountElements != 1) {
+        ERROR_LOG("idxCount element count must be 1, actual %ld", idxCountElements);
+    }
+    if (activeIndexCount > lensValues.size()) {
+        ERROR_LOG("idxCount %u exceeds lens count %zu", activeIndexCount, lensValues.size());
+    }
+    uint64_t totalRankEntries = 0;
+    const uint32_t validIndexCount = activeIndexCount <= lensValues.size() ? activeIndexCount : 0;
+    for (uint32_t i = 0; i < validIndexCount; ++i) {
+        totalRankEntries += lensValues[i];
+    }
     if (indexCount != flagCount) {
         ERROR_LOG("lens count %ld does not match flag count %ld", indexCount, flagCount);
     }
     if (weightElems % FEATURES != 0) {
         ERROR_LOG("input_weight_r element count %ld is not divisible by %ld", weightElems, FEATURES);
     }
-    std::vector<int64_t> weightShape{totalRankEntries, FEATURES};
+    if (static_cast<uint64_t>(weightElems) != totalRankEntries * static_cast<uint64_t>(FEATURES)) {
+        ERROR_LOG("weight element count %ld does not match sum(lens[:idxCount]) * %ld = %lu",
+                  weightElems, FEATURES, totalRankEntries * static_cast<uint64_t>(FEATURES));
+    }
+    std::vector<int64_t> weightShape{static_cast<int64_t>(totalRankEntries), FEATURES};
     std::vector<int64_t> lensShape{indexCount};
     std::vector<int64_t> flagShape{indexCount};
-    std::vector<int64_t> outputShape{totalRankEntries, FEATURES};
+    std::vector<int64_t> idxCountShape{1};
+    std::vector<int64_t> outputShape{static_cast<int64_t>(totalRankEntries), FEATURES};
     aclFormat format = ACL_FORMAT_ND;
     OperatorDesc opDesc;
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
     opDesc.AddInputTensorDesc(ACL_FLOAT, weightShape.size(), weightShape.data(), format);
     opDesc.AddInputTensorDesc(ACL_UINT32, lensShape.size(), lensShape.data(), format);
     opDesc.AddInputTensorDesc(ACL_UINT32, flagShape.size(), flagShape.data(), format);
+    opDesc.AddInputTensorDesc(ACL_UINT32, idxCountShape.size(), idxCountShape.data(), format);
     opDesc.AddOutputTensorDesc(ACL_FLOAT, outputShape.size(), outputShape.data(), format);
     opDesc.AddOutputTensorDesc(ACL_FLOAT, outputShape.size(), outputShape.data(), format);
     return opDesc;
@@ -82,7 +118,8 @@ bool SetInputData(OpRunner &runner)
     if (!ReadFile("../input/input_weight_r.bin", fileSize, runner.GetInputBuffer<void>(0), runner.GetInputSize(0)) ||
         !ReadFile("../input/input_weight_i.bin", fileSize, runner.GetInputBuffer<void>(1), runner.GetInputSize(1)) ||
         !ReadFile("../input/input_lens.bin", fileSize, runner.GetInputBuffer<void>(2), runner.GetInputSize(2)) ||
-        !ReadFile("../input/input_flag.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3))) {
+        !ReadFile("../input/input_flag.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3)) ||
+        !ReadFile("../input/input_idx_count.bin", fileSize, runner.GetInputBuffer<void>(4), runner.GetInputSize(4))) {
         return false;
     }
     INFO_LOG("Set input success");

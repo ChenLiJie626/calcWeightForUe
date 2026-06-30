@@ -47,7 +47,8 @@ def build_flag(index_count: int) -> np.ndarray:
 INDEX_COUNT = int(os.environ.get("INDEX_COUNT", default_index_count()))
 LENS = build_lens(INDEX_COUNT)
 FLAG = build_flag(INDEX_COUNT)
-TOTAL_RANK_ENTRIES = int(np.sum(LENS))
+IDX_COUNT = np.array([INDEX_COUNT], dtype=np.uint32)
+TOTAL_RANK_ENTRIES = int(np.sum(LENS[:int(IDX_COUNT[0])]))
 
 
 def build_golden(weight_r: np.ndarray, weight_i: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -55,7 +56,8 @@ def build_golden(weight_r: np.ndarray, weight_i: np.ndarray) -> tuple[np.ndarray
     out_i = np.zeros_like(weight_i)
 
     pos = 0
-    for index in range(INDEX_COUNT):
+    idx_count = int(IDX_COUNT[0])
+    for index in range(idx_count):
         ranks = int(LENS[index])
         if ranks == 0:
             continue
@@ -99,6 +101,7 @@ def main() -> None:
     weight_i.tofile("input/input_weight_i.bin")
     LENS.tofile("input/input_lens.bin")
     FLAG.tofile("input/input_flag.bin")
+    IDX_COUNT.tofile("input/input_idx_count.bin")
 
     golden_r, golden_i = build_golden(weight_r, weight_i)
     golden_r.tofile("output/golden_weightout_r.bin")
@@ -106,7 +109,7 @@ def main() -> None:
 
     print(
         "Generate input and golden data success. "
-        f"indexCount={INDEX_COUNT}, totalRankEntries={TOTAL_RANK_ENTRIES}, "
+        f"idxCount={int(IDX_COUNT[0])}, totalRankEntries={TOTAL_RANK_ENTRIES}, "
         f"features={FEATURES}, lensAvg={float(np.mean(LENS)):.6g}, "
         f"lensMin={int(np.min(LENS))}, lensMax={int(np.max(LENS))}, "
         f"flagOn={int(np.count_nonzero(FLAG))}, flagOff={int(FLAG.shape[0] - np.count_nonzero(FLAG))}"

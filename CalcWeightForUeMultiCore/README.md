@@ -5,14 +5,15 @@ AscendC AIV custom-operator project for `CalcWeightForUe`.
 Inputs:
 
 - `weight_r`, `weight_i`: `float`, shape `[totalRankEntries, 256]`.
-- `lens`: `uint32`, shape `[indexCount]`. `lens[i]` is the rank-row count for index `i`.
-- `flag`: `uint32`, shape `[indexCount]`. `flag[i] != 0` enables normalization for that `[lens[i], 256]` segment; `flag[i] == 0` copies it unchanged.
+- `lens`: `uint32`, shape `[lensStorageCount]`. `lens[i]` is the rank-row count for index `i`.
+- `flag`: `uint32`, shape `[lensStorageCount]`. `flag[i] != 0` enables normalization for that `[lens[i], 256]` segment; `flag[i] == 0` copies it unchanged.
+- `idxCount`: `uint32`, shape `[1]`. The kernel reads it from GM and processes only `lens[:idxCount]`.
 
 Outputs:
 
 - `weightout_r`, `weightout_i`: `float`, shape `[totalRankEntries, 256]`.
 
-For each index `i`:
+For each index `i` in `range(idxCount)`:
 
 ```text
 pos = sum(lens[:i])

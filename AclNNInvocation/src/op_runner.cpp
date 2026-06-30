@@ -315,7 +315,8 @@ bool OpRunner::RunOp()
     size_t workspaceSize = 0;
     aclOpExecutor *handle = nullptr;
     auto ret = aclnnCalcWeightForUeGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2],
-                                                    inputTensor_[3], outputTensor_[0], outputTensor_[1],
+                                                    inputTensor_[3], inputTensor_[4],
+                                                    outputTensor_[0], outputTensor_[1],
                                                     &workspaceSize, &handle);
     if (ret != ACL_SUCCESS) {
         (void)aclrtDestroyStream(stream);

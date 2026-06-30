@@ -27,8 +27,17 @@ def main() -> int:
     base = Path(".")
     lens = np.fromfile(base / "input/input_lens.bin", dtype=np.uint32)
     flag = np.fromfile(base / "input/input_flag.bin", dtype=np.uint32)
-    index_count = int(lens.shape[0])
-    total_entries = int(np.sum(lens))
+    idx_count = np.fromfile(base / "input/input_idx_count.bin", dtype=np.uint32)
+    if idx_count.shape != (1,):
+        print("input/input_idx_count.bin must contain exactly one uint32.")
+        return 1
+    index_count = int(idx_count[0])
+    if index_count > lens.shape[0] or index_count > flag.shape[0]:
+        print(f"idxCount={index_count} exceeds lens/flag entries: lens={lens.shape[0]}, flag={flag.shape[0]}")
+        return 1
+    active_lens = lens[:index_count]
+    active_flag = flag[:index_count]
+    total_entries = int(np.sum(active_lens))
     if index_count == 0 or total_entries == 0:
         print("No input data found. Run scripts/gen_data.py first.")
         return 1
@@ -41,19 +50,19 @@ def main() -> int:
     actual_i = load_float(base / "output/output_weightout_i.bin", (total_entries, FEATURES))
 
     np.set_printoptions(precision=6, suppress=False, linewidth=180)
-    print(f"indexCount={index_count}, totalRankEntries={total_entries}, lens={lens.tolist()}")
-    print(f"flag={flag.tolist()}")
+    print(f"idxCount={index_count}, totalRankEntries={total_entries}, lens={active_lens.tolist()}")
+    print(f"flag={active_flag.tolist()}")
     print()
 
     pos = 0
     printed = 0
-    for index, cur_len in enumerate(lens):
+    for index, cur_len in enumerate(active_lens):
         ranks = int(cur_len)
         if ranks == 0:
             continue
         next_pos = pos + ranks
         if printed < args.entries:
-            print(f"=== index {index} (rankRows={ranks}, flag={int(flag[index])}, pos={pos}) ===")
+            print(f"=== index {index} (rankRows={ranks}, flag={int(active_flag[index])}, pos={pos}) ===")
             rows = min(args.rows, ranks)
             print_rows("input weight_r", weight_r[pos:next_pos], rows, args.cols)
             print_rows("input weight_i", weight_i[pos:next_pos], rows, args.cols)

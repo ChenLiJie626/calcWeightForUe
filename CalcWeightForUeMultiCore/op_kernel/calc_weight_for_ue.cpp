@@ -7,6 +7,15 @@ constexpr uint32_t FEATURES = 256;
 constexpr uint32_t FLOAT_BYTES = sizeof(float);
 constexpr uint32_t ROW_BYTES = FEATURES * FLOAT_BYTES;
 
+__aicore__ inline uint32_t CalcTotalRankEntries(__gm__ uint32_t *lensGm, uint32_t indexCount)
+{
+    uint32_t total = 0;
+    for (uint32_t index = 0; index < indexCount; ++index) {
+        total += lensGm[index];
+    }
+    return total;
+}
+
 __aicore__ inline uint32_t GetEntryOffset(__gm__ uint32_t *lensGm, uint32_t index, uint32_t totalRankEntries)
 {
     uint32_t offset = 0;
@@ -136,7 +145,7 @@ __aicore__ inline void ProcessIndex(GlobalTensor<float> &weightR, GlobalTensor<f
 } // namespace CalcWeightForUeKernel
 
 extern "C" __global__ __aicore__ void calc_weight_for_ue(GM_ADDR weight_r, GM_ADDR weight_i,
-                                                          GM_ADDR lens, GM_ADDR flag,
+                                                          GM_ADDR lens, GM_ADDR flag, GM_ADDR idxCount,
                                                           GM_ADDR weightout_r, GM_ADDR weightout_i,
                                                           GM_ADDR workspace, GM_ADDR tiling)
 {
@@ -145,6 +154,7 @@ extern "C" __global__ __aicore__ void calc_weight_for_ue(GM_ADDR weight_r, GM_AD
     (void)weight_i;
     (void)lens;
     (void)flag;
+    (void)idxCount;
     (void)weightout_r;
     (void)weightout_i;
     (void)workspace;
@@ -152,11 +162,13 @@ extern "C" __global__ __aicore__ void calc_weight_for_ue(GM_ADDR weight_r, GM_AD
     return;
 #else
     (void)workspace;
-    GET_TILING_DATA(tilingData, tiling);
+    (void)tiling;
     using namespace CalcWeightForUeKernel;
 
-    const uint32_t indexCount = tilingData.indexCount;
-    const uint32_t totalRankEntries = tilingData.totalRankEntries;
+    auto lensGm = reinterpret_cast<__gm__ uint32_t *>(lens);
+    auto idxCountGm = reinterpret_cast<__gm__ uint32_t *>(idxCount);
+    const uint32_t indexCount = idxCountGm[0];
+    const uint32_t totalRankEntries = CalcTotalRankEntries(lensGm, indexCount);
     if (indexCount == 0 || totalRankEntries == 0) {
         return;
     }
